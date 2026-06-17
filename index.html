@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Study Pro AI Tracker</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #000;
+    color: white;
+    text-align: center;
+    padding: 20px;
+}
+
+.container {
+    max-width: 650px;
+    margin: auto;
+    background: #0b0b0b;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #1f1f1f;
+}
+
+input {
+    padding: 10px;
+    margin: 5px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #111;
+    color: white;
+}
+
+/* BLUE BUTTONS */
+button {
+    padding: 10px 14px;
+    margin: 5px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #2563eb;
+    color: white;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+.section {
+    margin-top: 15px;
+    padding: 10px;
+    border: 1px solid #222;
+    border-radius: 10px;
+    background: #0b0b0b;
+}
+
+.task {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px;
+    border-bottom: 1px solid #222;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📚 Study Pro AI Tracker</h1>
+
+<!-- SUBJECT -->
+<input id="subjectName" placeholder="Add subject">
+<button onclick="addSubject()">Add</button>
+
+<div id="subjects"></div>
+
+<!-- TASK SYSTEM -->
+<div class="section">
+    <h2>🧩 Tasks</h2>
+    <input id="taskInput" placeholder="Add task">
+    <button onclick="addTask()">Add Task</button>
+    <div id="taskList"></div>
+</div>
+
+<!-- AI ROUTINE -->
+<div class="section">
+    <h2>📅 AI Routine Generator</h2>
+    <button onclick="generateRoutine()">Generate Routine</button>
+    <div id="routineBox"></div>
+</div>
+
+<!-- AI SUGGESTION -->
+<div class="section">
+    <h2>🧠 Focus AI</h2>
+    <p id="aiText">Start studying to get suggestion</p>
+</div>
+
+<!-- RANKING -->
+<div class="section">
+    <h2>🎯 Subject Ranking</h2>
+    <div id="ranking"></div>
+</div>
+
+</div>
+
+<script>
+
+/* ---------------- SUBJECTS ---------------- */
+
+let subjects = JSON.parse(localStorage.getItem("subjects")) || [];
+
+function save() {
+    localStorage.setItem("subjects", JSON.stringify(subjects));
+    render();
+    updateRanking();
+    aiSuggest();
+}
+
+function addSubject() {
+    let name = document.getElementById("subjectName").value;
+    if (!name) return;
+
+    subjects.push({ name, time: 0, running: false, start: null });
+    document.getElementById("subjectName").value = "";
+    save();
+}
+
+function toggle(i) {
+    let s = subjects[i];
+
+    if (!s.running) {
+        s.running = true;
+        s.start = Date.now();
+    } else {
+        s.running = false;
+        s.time += Date.now() - s.start;
+    }
+
+    save();
+}
+
+function format(ms) {
+    let m = Math.floor(ms / 60000);
+    let h = Math.floor(m / 60);
+    return `${h}h ${m % 60}m`;
+}
+
+function render() {
+    let box = document.getElementById("subjects");
+    box.innerHTML = "";
+
+    subjects.forEach((s, i) => {
+        let t = s.time;
+        if (s.running) t += Date.now() - s.start;
+
+        box.innerHTML += `
+        <div class="section">
+            <h3>${s.name}</h3>
+            <p>${format(t)}</p>
+            <button onclick="toggle(${i})">${s.running ? "Stop" : "Start"}</button>
+        </div>`;
+    });
+}
+
+/* ---------------- TASK SYSTEM ---------------- */
+
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+
+function saveTasks() {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+    renderTasks();
+}
+
+function addTask() {
+    let val = document.getElementById("taskInput").value;
+    if (!val) return;
+
+    tasks.push({ text: val, done: false });
+    document.getElementById("taskInput").value = "";
+    saveTasks();
+}
+
+function toggleTask(i) {
+    tasks[i].done = !tasks[i].done;
+    saveTasks();
+}
+
+function renderTasks() {
+    let box = document.getElementById("taskList");
+    box.innerHTML = "";
+
+    tasks.forEach((t, i) => {
+        box.innerHTML += `
+        <div class="task">
+            <span style="text-decoration:${t.done ? 'line-through' : 'none'}">${t.text}</span>
+            <button onclick="toggleTask(${i})">✔</button>
+        </div>`;
+    });
+}
+
+/* ---------------- AI ROUTINE ---------------- */
+
+function generateRoutine() {
+    let box = document.getElementById("routineBox");
+    box.innerHTML = "";
+
+    if (subjects.length === 0) {
+        box.innerHTML = "Add subjects first";
+        return;
+    }
+
+    let sorted = [...subjects].sort((a, b) => a.time - b.time);
+
+    box.innerHTML += "<h3>📅 Today Routine</h3>";
+
+    for (let i = 0; i < 5; i++) {
+        let s = sorted[i % sorted.length];
+
+        box.innerHTML += `
+        <p>⏰ Slot ${i + 1}: ${s.name} (45 min)</p>
+        `;
+    }
+}
+
+/* ---------------- AI SUGGESTION ---------------- */
+
+function aiSuggest() {
+    let box = document.getElementById("aiText");
+
+    if (subjects.length === 0) {
+        box.innerText = "Add subjects first";
+        return;
+    }
+
+    let max = subjects.reduce((a,b)=> a.time > b.time ? a : b);
+
+    box.innerText = `Focus more on "${max.name}" 🔥`;
+}
+
+/* ---------------- RANKING ---------------- */
+
+function updateRanking() {
+    let box = document.getElementById("ranking");
+    box.innerHTML = "";
+
+    let total = subjects.reduce((a,b)=>a+b.time,0) || 1;
+
+    subjects.forEach(s => {
+        let percent = Math.round((s.time / total) * 100);
+        box.innerHTML += `<p>${s.name} → ${percent}%</p>`;
+    });
+}
+
+/* ---------------- LOOP ---------------- */
+
+setInterval(render, 1000);
+setInterval(aiSuggest, 5000);
+
+render();
+renderTasks();
+updateRanking();
+aiSuggest();
+
+</script>
+
+</body>
+</html>
